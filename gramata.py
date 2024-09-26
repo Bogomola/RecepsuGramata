@@ -1,40 +1,105 @@
+from datubaze import *
+
 import sqlite3
 
-
+# Izveidojam savienojumu ar SQLite datubāzi
 conn = sqlite3.connect('receptes.db')
 cursor = conn.cursor()
 
+# Funkcija, lai parādītu sākotnēju izvēlni
+def izvelne():
+    while True:
+        print("=" * 50)
+        print(" " * 15 + "🍽️  Recepšuu gramāta  🍽️")
+        print("=" * 50)
+        print("1. Pievienot jaunu recepti")
+        print("2. Apskatīt visas receptes")
+        print("3. Iziet")
+        izvele = input("Ievadi izvēles numuru: ")
+        
+        if izvele == '1':
+            pievienot_recepti()
+        elif izvele == '2':
+            paradi_receptes()
+        elif izvele == '3':
+            print("Programma beidzas.")
+            break
+        else:
+            print("Nepareiza izvēle. Mēģiniet vēlreiz!")
 
-cursor.execute('''
-CREATE TABLE IF NOT EXISTS receptes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nosaukums TEXT NOT NULL,
-    sastavdalas TEXT NOT NULL,
-    daudzums TEXT NOT NULL,
-    instrukcijas TEXT NOT NULL
-)
-''')
-
-# Receptes pievienošana
+# Funkcija, lai pievienotu jaunu recepti
 def pievienot_recepti():
     nosaukums = input("Ievadi receptes nosaukumu: ")
-    sastavdalas = input("Ievadi sastāvdaļas, atdalot ar komatu: ")
-    daudzums = input("Ievadi daudzumu (tajā pašā secībā kā sastāvdaļas): ")
     instrukcijas = input("Ievadi receptes instrukcijas: ")
-    
-    if nosaukums and sastavdalas and daudzums and instrukcijas:
-        cursor.execute('''
-        INSERT INTO receptes (nosaukums, sastavdalas, daudzums, instrukcijas) 
-        VALUES (?, ?, ?, ?)
-        ''', (nosaukums, sastavdalas, daudzums, instrukcijas))
-        conn.commit()
-        print(f"Recepte '{nosaukums}' veiksmīgi pievienota!\n")
-    else:
-        print("Lūdzu, aizpildiet visus laukus!\n")
+    gatavosanas_laiks = input("Ievadi gatavošanas laiku (piemēram, '30 minūtes'): ")
 
-# Parāda visas receptes no datubāzes
+    # Parādīt kategoriju opcijas un izvēlēties
+    cursor.execute("SELECT * FROM kategorijas")
+    kategorijas = cursor.fetchall()
+    print("Izvēlies kategoriju:")
+    for kategorija in kategorijas:
+        print(f"{kategorija[0]}. {kategorija[1]}")
+    
+    kategorija_id = input("Ievadi kategorijas ID vai '0', lai pievienotu jaunu kategoriju: ")
+
+    if kategorija_id == '0':
+        jauna_kategorija = input("Ievadi jaunās kategorijas nosaukumu: ")
+        cursor.execute("INSERT INTO kategorijas (nosaukums) VALUES (?)", (jauna_kategorija,))
+        conn.commit()
+        kategorija_id = cursor.lastrowid
+        print(f"Kategorija '{jauna_kategorija}' pievienota!")
+    else:
+        kategorija_id = int(kategorija_id)
+
+    # Ievadām receptes informāciju datubāzē
+    if nosaukums and instrukcijas and gatavosanas_laiks:
+        cursor.execute('''
+        INSERT INTO receptes (nosaukums, instrukcijas, gatavosanas_laiks, kategorija_id) 
+        VALUES (?, ?, ?, ?)
+        ''', (nosaukums, instrukcijas, gatavosanas_laiks, kategorija_id))
+        conn.commit()
+        # print(f"Recepte '{nosaukums}' veiksmīgi pievienota!\n")
+        
+        # Iegūstam jaunās receptes ID
+        recepte_id = cursor.lastrowid
+        
+        # Pievienojam sastāvdaļas šai receptei
+        while True:
+            sastavdala = input("Ievadi sastāvdaļas nosaukumu (vai 'beigt', lai pārtrauktu): ").capitalize()
+            if sastavdala.lower() == 'beigt':
+                break
+            cursor.execute("SELECT * FROM sastavdalas WHERE nosaukums = ?", (sastavdala,))
+            atrasta_sastavdala = cursor.fetchone()
+
+            if atrasta_sastavdala:
+                sastavdala_id = atrasta_sastavdala[0]
+                print(f"Sastāvdaļa '{sastavdala}' ir atrasta satavdaļu datubāzē!")
+            else:
+                mervieniba = input(f"Ievadi sastāvdaļas '{sastavdala}' mērvienību (piemēram, 'g', 'ml', 'gab'): ")
+                cursor.execute("INSERT INTO sastavdalas (nosaukums, mervieniba) VALUES (?, ?)", (sastavdala, mervieniba))
+                conn.commit()
+                sastavdala_id = cursor.lastrowid
+                print(f"Sastāvdaļa '{sastavdala}' pievienota datubāzei!")
+            
+            daudzums = input(f"Ievadi cik {mervieniba} '{sastavdala}' vajag receptei '{nosaukums}' (piemēram, '200'): ")
+
+            # Pievienojam sastāvdaļu receptei ar daudzumu starptabulā
+            cursor.execute('''
+            INSERT INTO receptes_sastavdalas (recepte_id, sastavdala_id, daudzums)
+            VALUES (?, ?, ?)
+            ''', (recepte_id, sastavdala_id, daudzums))
+            conn.commit()
+            print(f"Sastāvdaļa '{sastavdala}' veiksmīgi pievienota receptei '{nosaukums}'!\n")
+    else:
+        print("Lūdzu, aizpildiet visus laukus pareizi!\n")
+
+# Funkcija, lai izvadītu visas receptes un to sastāvdaļas
 def paradi_receptes():
-    cursor.execute('SELECT * FROM receptes')
+    cursor.execute('''
+    SELECT receptes.id, receptes.nosaukums, receptes.instrukcijas, receptes.gatavosanas_laiks, kategorijas.nosaukums
+    FROM receptes
+    JOIN kategorijas ON receptes.kategorija_id = kategorijas.id
+    ''')
     receptes = cursor.fetchall()
     
     if not receptes:
@@ -43,51 +108,24 @@ def paradi_receptes():
         for recepte in receptes:
             print(f"ID: {recepte[0]}")
             print(f"Nosaukums: {recepte[1]}")
-            print(f"Sastāvdaļas: {recepte[2]}")
-            print(f"Daudzums: {recepte[3]}")
-            print(f"Instrukcijas: {recepte[4]}\n")
+            print(f"Instrukcijas: {recepte[2]}")
+            print(f"Gatavošanas laiks: {recepte[3]}")
+            print(f"Kategorija: {recepte[4]}")
+
+            # Izvadām receptes sastāvdaļas
+            cursor.execute('''
+            SELECT sastavdalas.nosaukums, sastavdalas.mervieniba, receptes_sastavdalas.daudzums
+            FROM receptes_sastavdalas
+            JOIN sastavdalas ON receptes_sastavdalas.sastavdala_id = sastavdalas.id
+            WHERE receptes_sastavdalas.recepte_id = ?
+            ''', (recepte[0],))
+            sastavdalas = cursor.fetchall()
+            for sastavdala in sastavdalas:
+                print(f"  - {sastavdala[0]}: {sastavdala[2]} {sastavdala[1]}")
             print("-" * 40)
 
-# Receptes dzēšana no ID
-def dzest_recepti():
-    paradi_receptes()
-    recepte_id = input("Ievadiet receptes ID, kuru vēlaties dzēst: ")
-    
-    if recepte_id.isdigit():
-        cursor.execute('DELETE FROM receptes WHERE id = ?', (recepte_id,))
-        conn.commit()
-        print(f"Recepte ar ID {recepte_id} ir dzēsta!\n")
-    else:
-        print("Nepareizs ID formāts.\n")
+# Sākam ar izvēlni
+izvelne()
 
-# Galvenā izvēlne
-def izveleties_darbibu():
-    while True:
-        print("=" * 50)
-        print(" " * 15 + "🍽️  Recepšu gramāta  🍽️")
-        print("=" * 50)
-        print("Izvēlies darbību:")
-        print("1. Pievienot recepti")
-        print("2. Parādīt visas receptes")
-        print("3. Dzēst recepti")
-        print("4. Iziet no programmas\n")
-        print("=" * 50)
-        izvele = input("\nIevadi izvēles numuru: ")
-
-        if izvele == "1":
-            pievienot_recepti()
-        elif izvele == "2":
-            paradi_receptes()
-        elif izvele == "3":
-            dzest_recepti()
-        elif izvele == "4":
-            print("Atā!")
-            break
-        else:
-            print("Nepareiza izvēle, mēģini vēlreiz!\n")
-
-
-izveleties_darbibu()
-
-
+# Aizveram savienojumu, kad viss darīts
 conn.close()
