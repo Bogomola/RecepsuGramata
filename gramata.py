@@ -9,13 +9,15 @@ cursor = conn.cursor()
 # Funkcija, lai parādītu sākotnēju izvēlni
 def izvelne():
     while True:
-        print("=" * 50)
-        print(" " * 15 + "🍽️  Recepšuu gramāta  🍽️")
-        print("=" * 50)
-        print("1. Pievienot jaunu recepti")
-        print("2. Apskatīt visas receptes")
-        print("3. Iziet")
-        izvele = input("Ievadi izvēles numuru: ")
+        print()
+        print("🍒🍏🍌🍎"*7)
+        print("🍏"+" " * 15 + "🍽️  Recepšuu gramāta  🍽️"+" "*15+"🍌")
+        print("🍌 "+"="*50+" 🍏")
+        print("🍎  1. Pievienot jaunu recepti ➕"+" "*21+"🍒")
+        print("🍌  2. Apskatīt visas receptes 👁"+" "*22+"🍎")
+        print("🍒  3. Iziet✌️"+" "*41+"🍌")
+        print("🍏🍌🍎🍒"*7)
+        izvele = input("\nIevadi izvēles numuru: ")
         
         if izvele == '1':
             pievienot_recepti()
@@ -23,6 +25,7 @@ def izvelne():
             paradi_receptes()
         elif izvele == '3':
             print("Programma beidzas.")
+            print("🍒🍏🍌🍎"*10)
             break
         else:
             print("Nepareiza izvēle. Mēģiniet vēlreiz!")
