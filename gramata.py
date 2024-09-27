@@ -1,4 +1,5 @@
 from datubaze import *
+from testesana import *
 
 import sqlite3
 
@@ -84,7 +85,7 @@ def pievienot_recepti():
                 sastavdala_id = cursor.lastrowid
                 print(f"Sastāvdaļa '{sastavdala}' pievienota datubāzei!")
             
-            daudzums = input(f"Ievadi cik {mervieniba} '{sastavdala}' vajag receptei '{nosaukums}' (piemēram, '200'): ")
+            daudzums = input(f"Ievadi cik '{sastavdala}' vajag receptei '{nosaukums}' (piemēram, '200'): ")
 
             # Pievienojam sastāvdaļu receptei ar daudzumu starptabulā
             cursor.execute('''

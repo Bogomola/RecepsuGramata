@@ -1,6 +1,7 @@
 import sqlite3
 
-# Funkcija tabulu izveidei (ja datubāze tiek sākta atsevišķā failā)
+
+# Funkcija, kas pārbauda vai ir izveidota tabulaq
 def create_tables_test():
     conn = sqlite3.connect('receptes.db')
     cursor = conn.cursor()
