@@ -3,11 +3,11 @@ from testesana import *
 
 import sqlite3
 
-# Izveidojam savienojumu ar SQLite datubāzi
+
 conn = sqlite3.connect('receptes.db')
 cursor = conn.cursor()
 
-# Funkcija, lai parādītu sākotnēju izvēlni
+############## Funkcija, lai parādītu sākotnēju izvēlni#######################
 def izvelne():
     while True:
         print()
@@ -31,11 +31,21 @@ def izvelne():
         else:
             print("Nepareiza izvēle. Mēģiniet vēlreiz!")
 
-# Funkcija, lai pievienotu jaunu recepti
+##################### Funkcija, lai pievienotu jaunu recepti###############################
 def pievienot_recepti():
-    nosaukums = input("Ievadi receptes nosaukumu: ")
-    instrukcijas = input("Ievadi receptes instrukcijas: ")
-    gatavosanas_laiks = input("Ievadi gatavošanas laiku (piemēram, '30 minūtes'): ")
+    nosaukums = input("Ievadi receptes nosaukumu: ").strip()
+    if not nosaukums:
+        print("Kļūda: Nosaukums nedrīkst būt tukšs!")
+        nosaukums = input("Ievadi receptes nosaukumu: ").strip()
+    instrukcijas = input("Ievadi receptes instrukcijas: ").strip()
+    if not instrukcijas:
+        print("Kļūda: Instrukcijas nedrīkst būt tukšas!")
+        instrukcijas = input("Ievadi receptes instrukcijas: ").strip()
+    
+    gatavosanas_laiks = input("Ievadi gatavošanas laiku (piemēram, '30 minūtes'): ").strip()
+    if not gatavosanas_laiks:
+        print("Kļūda: Gatavošanas laiks nedrīkst būt tukšs!")
+        gatavosanas_laiks = input("Ievadi gatavošanas laiku (piemēram, '30 minūtes'): ").strip()
 
     # Parādīt kategoriju opcijas un izvēlēties
     cursor.execute("SELECT * FROM kategorijas")
@@ -44,16 +54,26 @@ def pievienot_recepti():
     for kategorija in kategorijas:
         print(f"{kategorija[0]}. {kategorija[1]}")
     
-    kategorija_id = input("Ievadi kategorijas ID vai '0', lai pievienotu jaunu kategoriju: ")
+    kategorija_id = input("Ievadi kategorijas ID vai '0', lai pievienotu jaunu kategoriju: ").strip()
 
-    if kategorija_id == '0':
-        jauna_kategorija = input("Ievadi jaunās kategorijas nosaukumu: ")
+    if kategorija_id == '0':  # Lietotājs pievieno jaunu kategoriju
+        jauna_kategorija = input("Ievadi jaunās kategorijas nosaukumu: ").strip()
+        if not jauna_kategorija:
+            print("Kļūda: Kategorijas nosaukums nedrīkst būt tukšs!")
+            jauna_kategorija = input("Ievadi jaunās kategorijas nosaukumu: ").strip()
         cursor.execute("INSERT INTO kategorijas (nosaukums) VALUES (?)", (jauna_kategorija,))
         conn.commit()
         kategorija_id = cursor.lastrowid
         print(f"Kategorija '{jauna_kategorija}' pievienota!")
     else:
-        kategorija_id = int(kategorija_id)
+        try:
+            kategorija_id = int(kategorija_id)  # Pārbaudām, vai tas ir derīgs skaitlis
+            if kategorija_id <= 0:
+                print("Kļūda: Kategorijas ID jābūt pozitīvam skaitlim!")
+                return
+        except ValueError:
+            print("Kļūda: Kategorijas ID jābūt derīgam skaitlim!")
+            return
 
     # Ievadām receptes informāciju datubāzē
     if nosaukums and instrukcijas and gatavosanas_laiks:

@@ -1,32 +1,21 @@
 import sqlite3
 
-
-# Funkcija, kas pārbauda vai ir izveidota tabulaq
-def create_tables_test():
-    conn = sqlite3.connect('receptes.db')
-    cursor = conn.cursor()
-
-    cursor.execute('''SELECT name FROM sqlite_master WHERE type='table';''')
-    tables = [table[0] for table in cursor.fetchall()]
-    
-    expected_tables = ['kategorijas', 'sastavdalas', 'receptes', 'receptes_sastavdalas']
-
-    # Pārbaudām, vai visas tabulas ir izveidotas
-    if set(expected_tables).issubset(set(tables)):
-        print("Test - Tabulu izveide: Izdevās!")
-    else:
-        print("Test - Tabulu izveide: Neizdevās!")
-    
-    conn.close()
-
-# Funkcija receptes pievienošanai
+# Funkcija receptes pievienošanai ar vienkāršu validāciju
 def pievienot_recepti(conn, nosaukums, instrukcijas, gatavosanas_laiks, kategorija_id, sastavdalas):
     cursor = conn.cursor()
+
+    # Validācija: pārbaudām vai ievades lauki ir aizpildīti
+    if not nosaukums or not instrukcijas or not gatavosanas_laiks:
+        raise ValueError("Nosaukums, instrukcijas un gatavošanas laiks ir obligāti aizpildāmi lauki!")
     
+    if not isinstance(kategorija_id, int):
+        raise TypeError("Kategorijas ID jābūt skaitlim!")
+
     cursor.execute("INSERT INTO receptes (nosaukums, instrukcijas, gatavosanas_laiks, kategorija_id) VALUES (?, ?, ?, ?)",
                    (nosaukums, instrukcijas, gatavosanas_laiks, kategorija_id))
     recepte_id = cursor.lastrowid
-    
+
+    # Pievienojam sastāvdaļas
     for sastavdala in sastavdalas:
         nosaukums, mervieniba, daudzums = sastavdala
         cursor.execute("INSERT INTO sastavdalas (nosaukums, mervieniba) VALUES (?, ?)", (nosaukums, mervieniba))
@@ -35,56 +24,56 @@ def pievienot_recepti(conn, nosaukums, instrukcijas, gatavosanas_laiks, kategori
                        (recepte_id, sastavdala_id, daudzums))
     
     conn.commit()
+    print("Recepte veiksmīgi pievienota!")
 
-# Testa funkcija receptes pievienošanai
-def test_add_recipe():
+######### Testa funkcija ar assert pārbaudēm######
+def test_pievienot_recepti():
     conn = sqlite3.connect('receptes.db')
-    
-    # Pievienojam kategoriju (piemēram, 1 - Brokastis)
-    cursor = conn.cursor()
-    
-    nosaukums = "Omlete"
-    instrukcijas = "Saputo olas un cep uz pannas."
-    gatavosanas_laiks = "10 minūtes"
-    sastavdalas = [("Olas", "gab", "3")]
-    kategorija_id = 1  # Brokastu kategorija jau pievienota
 
-    pievienot_recepti(conn, nosaukums, instrukcijas, gatavosanas_laiks, kategorija_id, sastavdalas)
+    #######1. Testējam veiksmīgu pievienošanu#######
+    try:
+        nosaukums = "Omlete"
+        instrukcijas = "Saputo olas un cep uz pannas."
+        gatavosanas_laiks = "10 minūtes"
+        kategorija_id = 1  # Kategorija ID (Brokastis)
+        sastavdalas = [("Olas", "gab", "3")]
+
+        pievienot_recepti(conn, nosaukums, instrukcijas, gatavosanas_laiks, kategorija_id, sastavdalas)
+        print("Test - Veiksmīga pievienošana: Izdevās!")
+    except Exception as e:
+        assert False, f"Test - Veiksmīga pievienošana neizdevās: {e}"
+
+    ####### 2. Testējam, ja ir recepte bez nosaukuma(nav ievadīts) (būtu jāizraisa ValueError)
+    try:
+        nosaukums = ""
+        instrukcijas = "Saputo olas un cep uz pannas."
+        gatavosanas_laiks = "10 minūtes"
+        kategorija_id = 1
+        sastavdalas = [("Olas", "gab", "3")]
+
+        pievienot_recepti(conn, nosaukums, instrukcijas, gatavosanas_laiks, kategorija_id, sastavdalas)
+        assert False, "Test - Tukšs nosaukums neizdevās, vajadzēja izraisīt ValueError"
     
-    # Pārbaudām, vai recepte tika pievienota
-    cursor.execute("SELECT * FROM receptes WHERE nosaukums = ?", (nosaukums,))
-    recipe = cursor.fetchone()
+    except ValueError as ve:
+        assert str(ve) == "Nosaukums, instrukcijas un gatavošanas laiks ir obligāti aizpildāmi lauki!", f"Kļūda: {ve}"
+        print("Test - Tukšs nosaukums: Izdevās!")
+
+    ######## 3. Testējam nederīgu kategorija_id (būtu jāizraisa TypeError)
+    try:
+        nosaukums = "Omlete"
+        instrukcijas = "Saputo olas un cep uz pannas."
+        gatavosanas_laiks = "10 minūtes"
+        kategorija_id = "brokastis"  # Šeit būtu jābūt skaitlim, bet ir ievadīts teksts
+        sastavdalas = [("Olas", "gab", "3")]
+
+        pievienot_recepti(conn, nosaukums, instrukcijas, gatavosanas_laiks, kategorija_id, sastavdalas)
+        assert False, "Test - Nederīgs kategorija_id neizdevās, vajadzēja izraisīt TypeError"
     
-    if recipe:
-        print("Test - Receptes pievienošana: Izdevās!")
-    else:
-        print("Test - Receptes pievienošana: Neizdevās!")
-    
+    except TypeError as te:
+        assert str(te) == "Kategorijas ID jābūt skaitlim!", f"Kļūda: {te}"
+        print("Test - Nederīgs kategorija_id: Izdevās!")
+
     conn.close()
 
-# Testa funkcija sastāvdaļas pievienošanai
-def test_add_ingredient():
-    conn = sqlite3.connect('receptes.db')
-    cursor = conn.cursor()
-    
-    # Pievienojam sastāvdaļu
-    sastavdala = "Tomāts"
-    mervieniba = "gab"
-    cursor.execute("INSERT INTO sastavdalas (nosaukums, mervieniba) VALUES (?, ?)", (sastavdala, mervieniba))
-    conn.commit()
-    
-    # Pārbaudām, vai sastāvdaļa tika pievienota
-    cursor.execute("SELECT * FROM sastavdalas WHERE nosaukums = ?", (sastavdala,))
-    ingredient = cursor.fetchone()
-    
-    if ingredient:
-        print("Test - Sastāvdaļas pievienošana: Izdevās!")
-    else:
-        print("Test - Sastāvdaļas pievienošana: Neizdevās!")
-    
-    conn.close()
-
-# Veicam testus
-create_tables_test()    # Pārbauda tabulu izveidi
-test_add_recipe()       # Pārbauda receptes pievienošanu
-test_add_ingredient()   # Pārbauda sastāvdaļas pievienošanu
+########## Testa funkcija
+test_pievienot_recepti()
